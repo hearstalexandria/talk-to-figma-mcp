@@ -124,6 +124,8 @@ The MCP server provides the following tools for interacting with Figma:
 - `read_my_design` - Get detailed node information about the current selection without parameters
 - `get_node_info` - Get detailed information about a specific node
 - `get_nodes_info` - Get detailed information about multiple nodes by providing an array of node IDs
+- `get_node_tree` - Get the hierarchical tree of a node and its children
+- `get_current_page_tree` - Inspect the full layer tree of the current page
 
 ### Annotations
 
@@ -171,6 +173,8 @@ The MCP server provides the following tools for interacting with Figma:
 - `delete_node` - Delete a node
 - `delete_multiple_nodes` - Delete multiple nodes at once efficiently
 - `clone_node` - Create a copy of an existing node with optional position offset
+- `clone_node_with_map` - Clone a node and return a mapping of original IDs to the new clone; accepts optional `parentId` to place the clone under a specific parent
+- `reparent_node` - Move an existing node to a new parent and optional index
 
 ### Components & Styles
 

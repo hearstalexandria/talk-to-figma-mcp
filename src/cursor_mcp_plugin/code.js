@@ -229,6 +229,14 @@ async function handleCommand(command, params) {
       return await setDefaultConnector(params);
     case "create_connections":
       return await createConnections(params);
+    case "clone_node_with_map":
+      return await cloneNodeWithMap(params);
+    case "reparent_node":
+      return await reparentNode(params);
+    case "get_node_tree":
+      return await getNodeTree(params);
+    case "get_current_page_tree":
+      return await getCurrentPageTree();
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -1664,6 +1672,119 @@ async function cloneNode(params) {
     y: "y" in clone ? clone.y : undefined,
     width: "width" in clone ? clone.width : undefined,
     height: "height" in clone ? clone.height : undefined,
+  };
+}
+
+// Clone node and return mapping from original IDs to clone IDs
+async function cloneNodeWithMap(params) {
+  const { nodeId, x, y, parentId } = params || {};
+
+  if (!nodeId) {
+    throw new Error("Missing nodeId parameter");
+  }
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) {
+    throw new Error(`Node not found with ID: ${nodeId}`);
+  }
+
+  const clone = node.clone();
+
+  if (x !== undefined && y !== undefined) {
+    if ("x" in clone && "y" in clone) {
+      clone.x = x;
+      clone.y = y;
+    }
+  }
+
+  if (parentId) {
+    const parent = await figma.getNodeByIdAsync(parentId);
+    if (!parent) throw new Error(`Parent node not found with ID: ${parentId}`);
+    if ("appendChild" in parent) {
+      parent.appendChild(clone);
+    } else {
+      figma.currentPage.appendChild(clone);
+    }
+  } else if (node.parent) {
+    node.parent.appendChild(clone);
+  } else {
+    figma.currentPage.appendChild(clone);
+  }
+
+  const idMap = {};
+  function mapIds(orig, dup) {
+    idMap[orig.id] = dup.id;
+    if ("children" in orig && "children" in dup) {
+      for (let i = 0; i < orig.children.length; i++) {
+        mapIds(orig.children[i], dup.children[i]);
+      }
+    }
+  }
+  mapIds(node, clone);
+
+  return {
+    id: clone.id,
+    name: clone.name,
+    idMap,
+  };
+}
+
+// Get hierarchical tree for a node
+async function getNodeTree(params) {
+  const { nodeId } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found with ID: ${nodeId}`);
+
+  function traverse(n) {
+    const info = { id: n.id, name: n.name, type: n.type };
+    if ("children" in n) {
+      info.children = n.children.map(traverse);
+    }
+    return info;
+  }
+  return traverse(node);
+}
+
+// Get hierarchical tree for the current page
+async function getCurrentPageTree() {
+  const page = figma.currentPage;
+  function traverse(n) {
+    const info = { id: n.id, name: n.name, type: n.type };
+    if ("children" in n) {
+      info.children = n.children.map(traverse);
+    }
+    return info;
+  }
+  return traverse(page);
+}
+
+// Reparent an existing node to a new parent
+async function reparentNode(params) {
+  const { nodeId, newParentId, index } = params || {};
+  if (!nodeId || !newParentId) {
+    throw new Error("Missing nodeId or newParentId parameter");
+  }
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found with ID: ${nodeId}`);
+
+  const newParent = await figma.getNodeByIdAsync(newParentId);
+  if (!newParent) throw new Error(`Parent node not found with ID: ${newParentId}`);
+  if (!("appendChild" in newParent)) {
+    throw new Error(`Parent node does not support children: ${newParentId}`);
+  }
+
+  if (typeof index === "number" && "insertChild" in newParent) {
+    newParent.insertChild(index, node);
+  } else {
+    newParent.appendChild(node);
+  }
+
+  return {
+    id: node.id,
+    parentId: newParent.id,
+    index: typeof index === "number" ? index : undefined,
   };
 }
 
