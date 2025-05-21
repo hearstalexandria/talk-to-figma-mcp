@@ -353,6 +353,66 @@ server.tool(
   }
 );
 
+// Node Tree Tool
+server.tool(
+  "get_node_tree",
+  "Get the hierarchical tree of a node and its children",
+  {
+    nodeId: z.string().describe("ID of the node to inspect")
+  },
+  async ({ nodeId }) => {
+    try {
+      const result = await sendCommandToFigma("get_node_tree", { nodeId });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting node tree: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Current Page Tree Tool
+server.tool(
+  "get_current_page_tree",
+  "Get the hierarchical tree of the current page",
+  {},
+  async () => {
+    try {
+      const result = await sendCommandToFigma("get_current_page_tree", {});
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting page tree: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
 
 // Create Rectangle Tool
 server.tool(
@@ -747,6 +807,39 @@ server.tool(
           {
             type: "text",
             text: `Error cloning node: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Clone Node with Map Tool
+server.tool(
+  "clone_node_with_map",
+  "Clone a node and get a mapping of original IDs to cloned IDs",
+  {
+    nodeId: z.string().describe("The ID of the node to clone"),
+    x: z.number().optional().describe("New X position for the clone"),
+    y: z.number().optional().describe("New Y position for the clone")
+  },
+  async ({ nodeId, x, y }) => {
+    try {
+      const result = await sendCommandToFigma('clone_node_with_map', { nodeId, x, y });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error cloning node with map: ${error instanceof Error ? error.message : String(error)}`
           }
         ]
       };
