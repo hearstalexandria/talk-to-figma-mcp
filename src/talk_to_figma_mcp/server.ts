@@ -353,6 +353,66 @@ server.tool(
   }
 );
 
+// Node Tree Tool
+server.tool(
+  "get_node_tree",
+  "Get the hierarchical tree of a node and its children",
+  {
+    nodeId: z.string().describe("ID of the node to inspect")
+  },
+  async ({ nodeId }) => {
+    try {
+      const result = await sendCommandToFigma("get_node_tree", { nodeId });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting node tree: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Current Page Tree Tool
+server.tool(
+  "get_current_page_tree",
+  "Get the hierarchical tree of the current page",
+  {},
+  async () => {
+    try {
+      const result = await sendCommandToFigma("get_current_page_tree", {});
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting page tree: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
 
 // Create Rectangle Tool
 server.tool(
@@ -747,6 +807,74 @@ server.tool(
           {
             type: "text",
             text: `Error cloning node: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Clone Node with Map Tool
+server.tool(
+  "clone_node_with_map",
+  "Clone a node and get a mapping of original IDs to cloned IDs",
+  {
+    nodeId: z.string().describe("The ID of the node to clone"),
+    x: z.number().optional().describe("New X position for the clone"),
+    y: z.number().optional().describe("New Y position for the clone"),
+    parentId: z.string().optional().describe("Optional parent to append the clone to")
+  },
+  async ({ nodeId, x, y, parentId }) => {
+    try {
+      const result = await sendCommandToFigma('clone_node_with_map', { nodeId, x, y, parentId });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error cloning node with map: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Reparent Node Tool
+server.tool(
+  "reparent_node",
+  "Move a node to a new parent",
+  {
+    nodeId: z.string().describe("ID of the node to move"),
+    newParentId: z.string().describe("ID of the new parent"),
+    index: z.number().optional().describe("Optional index to insert at")
+  },
+  async ({ nodeId, newParentId, index }) => {
+    try {
+      const result = await sendCommandToFigma('reparent_node', { nodeId, newParentId, index });
+      const typed = result as { parentId: string };
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Reparented node to ${typed.parentId}`
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error reparenting node: ${error instanceof Error ? error.message : String(error)}`
           }
         ]
       };
@@ -2582,7 +2710,11 @@ type FigmaCommand =
   | "set_item_spacing"
   | "get_reactions"
   | "set_default_connector"
-  | "create_connections";
+  | "create_connections"
+  | "clone_node_with_map"
+  | "get_node_tree"
+  | "get_current_page_tree"
+  | "reparent_node";
 
 type CommandParams = {
   get_document_info: Record<string, never>;
@@ -2685,6 +2817,15 @@ type CommandParams = {
     x?: number;
     y?: number;
   };
+  clone_node_with_map: {
+    nodeId: string;
+    x?: number;
+    y?: number;
+    parentId?: string;
+  };
+  get_node_tree: { nodeId: string };
+  get_current_page_tree: Record<string, never>;
+  reparent_node: { nodeId: string; newParentId: string; index?: number };
   set_text_content: {
     nodeId: string;
     text: string;
