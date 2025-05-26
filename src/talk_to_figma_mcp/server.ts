@@ -151,6 +151,70 @@ server.tool(
   }
 );
 
+// Select Nodes Tool
+server.tool(
+  "select_nodes",
+  "Select nodes on the canvas by their IDs",
+  {
+    nodeIds: z.array(z.string()).describe("Array of node IDs to select")
+  },
+  async ({ nodeIds }) => {
+    try {
+      const result = await sendCommandToFigma("select_nodes", { nodeIds });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error selecting nodes: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Export Selection Tool
+server.tool(
+  "get_selection_base64",
+  "Export the current selection as a JPG and return the base64 string",
+  {
+    scale: z.number().positive().optional().describe("Export scale")
+  },
+  async ({ scale }) => {
+    try {
+      const result = await sendCommandToFigma("get_selection_base64", { scale });
+      const typed = result as { imageData: string; mimeType: string };
+      return {
+        content: [
+          {
+            type: "image",
+            data: typed.imageData,
+            mimeType: typed.mimeType || "image/jpeg"
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error exporting selection: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
 // Read My Design Tool
 server.tool(
   "read_my_design",
@@ -348,6 +412,66 @@ server.tool(
               }`,
           },
         ],
+      };
+    }
+  }
+);
+
+// Node Tree Tool
+server.tool(
+  "get_node_tree",
+  "Get the hierarchical tree of a node and its children",
+  {
+    nodeId: z.string().describe("ID of the node to inspect")
+  },
+  async ({ nodeId }) => {
+    try {
+      const result = await sendCommandToFigma("get_node_tree", { nodeId });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting node tree: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Current Page Tree Tool
+server.tool(
+  "get_current_page_tree",
+  "Get the hierarchical tree of the current page",
+  {},
+  async () => {
+    try {
+      const result = await sendCommandToFigma("get_current_page_tree", {});
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting page tree: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
       };
     }
   }
@@ -747,6 +871,39 @@ server.tool(
           {
             type: "text",
             text: `Error cloning node: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Clone Node with Map Tool
+server.tool(
+  "clone_node_with_map",
+  "Clone a node and get a mapping of original IDs to cloned IDs",
+  {
+    nodeId: z.string().describe("The ID of the node to clone"),
+    x: z.number().optional().describe("New X position for the clone"),
+    y: z.number().optional().describe("New Y position for the clone")
+  },
+  async ({ nodeId, x, y }) => {
+    try {
+      const result = await sendCommandToFigma('clone_node_with_map', { nodeId, x, y });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error cloning node with map: ${error instanceof Error ? error.message : String(error)}`
           }
         ]
       };
@@ -2568,6 +2725,7 @@ type FigmaCommand =
   | "join"
   | "set_corner_radius"
   | "clone_node"
+  | "clone_node_with_map"
   | "set_text_content"
   | "scan_text_nodes"
   | "set_multiple_text_contents"
@@ -2582,7 +2740,11 @@ type FigmaCommand =
   | "set_item_spacing"
   | "get_reactions"
   | "set_default_connector"
-  | "create_connections";
+  | "create_connections"
+  | "get_node_tree"
+  | "get_current_page_tree"
+  | "select_nodes"
+  | "get_selection_base64";
 
 type CommandParams = {
   get_document_info: Record<string, never>;
@@ -2685,6 +2847,11 @@ type CommandParams = {
     x?: number;
     y?: number;
   };
+  clone_node_with_map: {
+    nodeId: string;
+    x?: number;
+    y?: number;
+  };
   set_text_content: {
     nodeId: string;
     text: string;
@@ -2725,7 +2892,12 @@ type CommandParams = {
       text?: string;
     }>;
   };
-  
+
+  get_node_tree: { nodeId: string };
+  get_current_page_tree: Record<string, never>;
+  select_nodes: { nodeIds: string[] };
+  get_selection_base64: { scale?: number };
+
 };
 
 

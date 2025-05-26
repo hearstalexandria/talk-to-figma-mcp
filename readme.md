@@ -121,9 +121,12 @@ The MCP server provides the following tools for interacting with Figma:
 
 - `get_document_info` - Get information about the current Figma document
 - `get_selection` - Get information about the current selection
+- `select_nodes` - Select nodes on the canvas by their IDs
 - `read_my_design` - Get detailed node information about the current selection without parameters
 - `get_node_info` - Get detailed information about a specific node
 - `get_nodes_info` - Get detailed information about multiple nodes by providing an array of node IDs
+- `get_node_tree` - Get the hierarchical tree of a node and its children
+- `get_current_page_tree` - Inspect the full layer tree of the current page
 
 ### Annotations
 
@@ -171,6 +174,7 @@ The MCP server provides the following tools for interacting with Figma:
 - `delete_node` - Delete a node
 - `delete_multiple_nodes` - Delete multiple nodes at once efficiently
 - `clone_node` - Create a copy of an existing node with optional position offset
+- `clone_node_with_map` - Clone a node and return a mapping of original IDs to the new clone
 
 ### Components & Styles
 
@@ -183,6 +187,7 @@ The MCP server provides the following tools for interacting with Figma:
 ### Export & Advanced
 
 - `export_node_as_image` - Export a node as an image (PNG, JPG, SVG, or PDF) - limited support on image currently returning base64 as text
+- `get_selection_base64` - Export the current selection as a JPG and return the base64 encoding
 
 ### Connection Management
 

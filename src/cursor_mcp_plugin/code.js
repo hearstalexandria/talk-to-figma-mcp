@@ -229,6 +229,16 @@ async function handleCommand(command, params) {
       return await setDefaultConnector(params);
     case "create_connections":
       return await createConnections(params);
+    case "select_nodes":
+      return await selectNodes(params);
+    case "get_selection_base64":
+      return await getSelectionBase64(params);
+    case "clone_node_with_map":
+      return await cloneNodeWithMap(params);
+    case "get_node_tree":
+      return await getNodeTree(params);
+    case "get_current_page_tree":
+      return await getCurrentPageTree();
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -1248,6 +1258,63 @@ async function exportNodeAsImage(params) {
     throw new Error(`Error exporting node as image: ${error.message}`);
   }
 }
+
+// Select nodes on the canvas by their IDs
+async function selectNodes(params) {
+  const { nodeIds } = params || {};
+  if (!nodeIds || !Array.isArray(nodeIds)) {
+    throw new Error("Missing or invalid nodeIds parameter");
+  }
+
+  const nodes = [];
+  for (const id of nodeIds) {
+    const node = await figma.getNodeByIdAsync(id);
+    if (node) nodes.push(node);
+  }
+
+  figma.currentPage.selection = nodes;
+  if (nodes.length > 0) {
+    figma.viewport.scrollAndZoomIntoView(nodes);
+  }
+
+  return {
+    selectedCount: nodes.length,
+    selectedIds: nodes.map((n) => n.id),
+  };
+}
+
+// Export the current selection as a JPG and return base64 string
+async function getSelectionBase64(params) {
+  const { scale = 1 } = params || {};
+  const selection = figma.currentPage.selection;
+  if (selection.length === 0) {
+    throw new Error("No nodes selected");
+  }
+
+  // Create a temporary frame to clone the selection for export
+  const temp = figma.createFrame();
+  temp.name = "__temp_export__";
+  temp.fills = [];
+  figma.currentPage.appendChild(temp);
+
+  for (const node of selection) {
+    const clone = node.clone();
+    temp.appendChild(clone);
+  }
+
+  const bytes = await temp.exportAsync({
+    format: "JPG",
+    constraint: { type: "SCALE", value: scale },
+  });
+
+  temp.remove();
+
+  return {
+    format: "JPG",
+    mimeType: "image/jpeg",
+    imageData: customBase64Encode(bytes),
+  };
+}
 function customBase64Encode(bytes) {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -1665,6 +1732,82 @@ async function cloneNode(params) {
     width: "width" in clone ? clone.width : undefined,
     height: "height" in clone ? clone.height : undefined,
   };
+}
+
+// Clone node and return mapping from original IDs to clone IDs
+async function cloneNodeWithMap(params) {
+  const { nodeId, x, y } = params || {};
+
+  if (!nodeId) {
+    throw new Error("Missing nodeId parameter");
+  }
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) {
+    throw new Error(`Node not found with ID: ${nodeId}`);
+  }
+
+  const clone = node.clone();
+
+  if (x !== undefined && y !== undefined) {
+    if ("x" in clone && "y" in clone) {
+      clone.x = x;
+      clone.y = y;
+    }
+  }
+
+  if (node.parent) {
+    node.parent.appendChild(clone);
+  } else {
+    figma.currentPage.appendChild(clone);
+  }
+
+  const idMap = {};
+  function mapIds(orig, dup) {
+    idMap[orig.id] = dup.id;
+    if ("children" in orig && "children" in dup) {
+      for (let i = 0; i < orig.children.length; i++) {
+        mapIds(orig.children[i], dup.children[i]);
+      }
+    }
+  }
+  mapIds(node, clone);
+
+  return {
+    id: clone.id,
+    name: clone.name,
+    idMap,
+  };
+}
+
+// Get hierarchical tree for a node
+async function getNodeTree(params) {
+  const { nodeId } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found with ID: ${nodeId}`);
+
+  function traverse(n) {
+    const info = { id: n.id, name: n.name, type: n.type };
+    if ("children" in n) {
+      info.children = n.children.map(traverse);
+    }
+    return info;
+  }
+  return traverse(node);
+}
+
+// Get hierarchical tree for the current page
+async function getCurrentPageTree() {
+  const page = figma.currentPage;
+  function traverse(n) {
+    const info = { id: n.id, name: n.name, type: n.type };
+    if ("children" in n) {
+      info.children = n.children.map(traverse);
+    }
+    return info;
+  }
+  return traverse(page);
 }
 
 async function scanTextNodes(params) {
